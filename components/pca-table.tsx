@@ -28,6 +28,7 @@ interface Filters {
   fonte: string
   grupo: string
   temPae: string
+  qdqq: string
 }
 
 const INITIAL_FILTERS: Filters = {
@@ -36,6 +37,7 @@ const INITIAL_FILTERS: Filters = {
   fonte: ALL_VALUE,
   grupo: ALL_VALUE,
   temPae: ALL_VALUE,
+  qdqq: ALL_VALUE,
 }
 
 const PAGE_SIZE = 10
@@ -138,6 +140,7 @@ export function PcaTable({
       prioridade: uniqueValues(itens, (i) => i.prioridade),
       fonte: uniqueValues(itens, (i) => i.fonteRecurso),
       grupo: uniqueValues(itens, (i) => i.grupo),
+      qdqq: uniqueValues(itens, (i) => i.dataDesejada),
     }),
     [itens],
   )
@@ -160,6 +163,7 @@ export function PcaTable({
       if (filters.grupo !== ALL_VALUE && i.grupo !== filters.grupo) return false
       if (filters.temPae === "Com PAE" && !i.temPae) return false
       if (filters.temPae === "Sem PAE" && i.temPae) return false
+      if (filters.qdqq !== ALL_VALUE && i.dataDesejada !== filters.qdqq) return false
       return true
     })
     result = [...result].sort((a, b) => (sortDir === "asc" ? compare(a, b, sortKey) : -compare(a, b, sortKey)))
@@ -215,7 +219,7 @@ export function PcaTable({
       </div>
 
       {/* Filtros */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
         <FilterSelect
           label="Demandante"
           value={filters.demandante}
@@ -245,6 +249,12 @@ export function PcaTable({
           value={filters.temPae}
           options={["Com PAE", "Sem PAE"]}
           onValueChange={(v) => updateFilter("temPae", v)}
+        />
+        <FilterSelect
+          label="QDQQ"
+          value={filters.qdqq}
+          options={options.qdqq}
+          onValueChange={(v) => updateFilter("qdqq", v)}
         />
       </div>
 
