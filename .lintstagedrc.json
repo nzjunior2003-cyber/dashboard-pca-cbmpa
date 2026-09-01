@@ -1,0 +1,5 @@
+{
+  "*.{ts,tsx,js,jsx}": ["git add"],
+  "*.{css,json}": ["git add"],
+  "*.md": ["git add"]
+}
