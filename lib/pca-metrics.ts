@@ -3,6 +3,7 @@ import type { PcaItem } from "./types"
 export interface PcaKpis {
   totalItens: number
   valorTotalEstimado: number
+  valorRecursoProvavel: number
   itensComPae: number
   itensSemPae: number
   itensAltaPrioridadeSemPae: number
@@ -15,6 +16,7 @@ export function computeKpis(itens: PcaItem[]): PcaKpis {
   return {
     totalItens: itens.length,
     valorTotalEstimado: itens.reduce((acc, i) => acc + (i.valorTotalEstimado ?? 0), 0),
+    valorRecursoProvavel: itens.reduce((acc, i) => acc + (i.valorRecursoProvavel ?? 0), 0),
     itensComPae: comPae.length,
     itensSemPae: semPae.length,
     itensAltaPrioridadeSemPae: semPae.filter((i) => i.prioridadeKey === "ALTA").length,

@@ -11,6 +11,7 @@ import {
   FileX2,
   TriangleAlert,
   Wallet,
+  CircleDollarSign,
   Landmark,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -86,6 +87,14 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
       tone: "neutral",
     },
     {
+      key: "valorRecurso",
+      label: "Valor do Recurso",
+      value: formatBRLCompact(kpis.valorRecursoProvavel),
+      hint: "coluna O — recurso provável",
+      icon: CircleDollarSign,
+      tone: "info",
+    },
+    {
       key: "valorSemPae",
       label: "Valor sem PAE",
       value: formatBRLCompact(kpis.valorSemPae),
@@ -97,7 +106,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
 
   return (
     <section aria-label="Indicadores principais">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {cards.map((c) => {
           const filterKey: "Com PAE" | "Sem PAE" | null =
             c.key === "comPae" ? "Com PAE" : c.key === "semPae" ? "Sem PAE" : null

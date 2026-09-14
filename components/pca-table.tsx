@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 import type { PcaItem } from "@/lib/types"
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, FilterX } from "lucide-react"
 
-type SortKey = "ordem" | "demandante" | "valorTotalEstimado" | "prioridade"
+type SortKey = "ordem" | "demandante" | "valorTotalEstimado" | "valorRecursoProvavel" | "prioridade"
 type SortDir = "asc" | "desc"
 
 const PAGE_SIZE = 10
@@ -32,6 +32,8 @@ function compare(a: PcaItem, b: PcaItem, key: SortKey): number {
   switch (key) {
     case "valorTotalEstimado":
       return (a.valorTotalEstimado ?? -1) - (b.valorTotalEstimado ?? -1)
+    case "valorRecursoProvavel":
+      return (a.valorRecursoProvavel ?? -1) - (b.valorRecursoProvavel ?? -1)
     case "prioridade":
       return PRIORIDADE_ORDEM.indexOf(a.prioridadeKey) - PRIORIDADE_ORDEM.indexOf(b.prioridadeKey)
     case "ordem":
@@ -336,13 +338,20 @@ export function PcaTable({
                 onClick={() => toggleSort("valorTotalEstimado")}
                 align="right"
               />
+              <SortHeader
+                label="Valor do Recurso"
+                active={sortKey === "valorRecursoProvavel"}
+                dir={sortDir}
+                onClick={() => toggleSort("valorRecursoProvavel")}
+                align="right"
+              />
               <TableHead>Nº PAE</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pageItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   Nenhum item encontrado com os filtros atuais.
                 </TableCell>
               </TableRow>
@@ -371,6 +380,7 @@ export function PcaTable({
                     <PrioridadeBadge prioridadeKey={i.prioridadeKey} prioridade={i.prioridade} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatBRL(i.valorTotalEstimado)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatBRL(i.valorRecursoProvavel)}</TableCell>
                   <TableCell>
                     <PaeBadge temPae={i.temPae} />
                   </TableCell>
