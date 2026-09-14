@@ -332,10 +332,9 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
       {/* Valor e nº de processos por fonte de recurso (empilhado por status) */}
       <Card>
         <CardHeader>
-          <CardTitle>Valor e processos por fonte de recurso</CardTitle>
+          <CardTitle>Valor do Recurso e processos por fonte</CardTitle>
           <CardDescription>
-            Empilhado por status (Aguardando instrução / Em andamento / Contratado) — passe o mouse para
-            ver o nº de processos
+            Valor do Recurso (coluna O), empilhado por status — passe o mouse para ver o nº de processos
           </CardDescription>
         </CardHeader>
         <CardContent>

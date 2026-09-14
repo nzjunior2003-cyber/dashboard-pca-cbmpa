@@ -120,7 +120,9 @@ export function stackedByFonteStatus(itens: PcaItem[], top = 12): FonteStatusSta
   const map = new Map<string, FonteStatusStackedItem>()
   for (const i of itens) {
     const label = i.fonteRecurso.trim() || "(não informado)"
-    const valor = i.valorTotalEstimado ?? 0
+    // A coluna "Fonte" se refere ao recurso, então o valor associado é o
+    // "Valor do Recurso" (coluna O) — não o valor total estimado do item.
+    const valor = i.valorRecursoProvavel ?? 0
     const prev =
       map.get(label) ??
       ({

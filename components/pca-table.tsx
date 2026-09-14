@@ -178,7 +178,9 @@ export function PcaTable({
     const subset = itens.filter((i) => i.fonteRecurso === fonte)
     const comPae = subset.filter((i) => i.temPae)
     const semPae = subset.filter((i) => !i.temPae)
-    const sum = (arr: PcaItem[]) => arr.reduce((acc, i) => acc + (i.valorTotalEstimado ?? 0), 0)
+    // A coluna "Fonte" se refere ao recurso, então o valor mostrado é o
+    // "Valor do Recurso" (coluna O) — não o valor total estimado do item.
+    const sum = (arr: PcaItem[]) => arr.reduce((acc, i) => acc + (i.valorRecursoProvavel ?? 0), 0)
     return {
       fonte,
       total: sum(subset),
@@ -190,7 +192,7 @@ export function PcaTable({
     }
   }, [itens, filters.fonte])
 
-  const fonteChartConfig: ChartConfig = { value: { label: "Valor estimado" } }
+  const fonteChartConfig: ChartConfig = { value: { label: "Valor do Recurso" } }
 
   return (
     <Card className="gap-4 p-4">
@@ -266,7 +268,7 @@ export function PcaTable({
               Fonte: <span className="font-semibold">{fonteBreakdown.fonte}</span>
             </h3>
             <p className="text-sm text-muted-foreground">
-              {fonteBreakdown.totalCount} item(ns) • valor total estimado:{" "}
+              {fonteBreakdown.totalCount} item(ns) • valor do recurso:{" "}
               <span className="font-semibold text-foreground">{formatBRL(fonteBreakdown.total)}</span>
             </p>
           </div>
