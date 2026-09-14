@@ -1,11 +1,17 @@
 "use client"
 
 import { useMemo } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, XAxis, YAxis, Tooltip } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import { countByDemandante, countByPrioridade, countComSemPae, sumValorByFonte } from "@/lib/pca-metrics"
-import { formatBRLCompact } from "@/lib/pca-utils"
+import {
+  countByDemandante,
+  countByPrioridade,
+  countComSemPae,
+  stackedByFontePae,
+  type FonteStackedItem,
+} from "@/lib/pca-metrics"
+import { formatBRL, formatBRLCompact } from "@/lib/pca-utils"
 import type { PcaItem } from "@/lib/types"
 
 const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"]
@@ -26,14 +32,44 @@ function shorten(label: string, max = 22) {
   return label.length > max ? `${label.slice(0, max - 1)}…` : label
 }
 
+function FonteTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: FonteStackedItem }> }) {
+  if (!active || !payload || payload.length === 0) return null
+  const d = payload[0].payload
+  return (
+    <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-md">
+      <p className="mb-1.5 font-medium text-foreground">{d.fonte}</p>
+      <div className="flex items-center gap-1.5">
+        <span className="size-2 rounded-full" style={{ backgroundColor: "var(--status-ok-foreground)" }} />
+        <span className="text-muted-foreground">Com PAE:</span>
+        <span className="font-medium text-foreground">
+          {formatBRL(d.comPaeValor)} ({d.comPaeCount} proc.)
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="size-2 rounded-full" style={{ backgroundColor: "var(--status-archived-foreground)" }} />
+        <span className="text-muted-foreground">Sem PAE:</span>
+        <span className="font-medium text-foreground">
+          {formatBRL(d.semPaeValor)} ({d.semPaeCount} proc.)
+        </span>
+      </div>
+      <div className="mt-1.5 border-t border-border pt-1.5 font-medium text-foreground">
+        Total: {formatBRL(d.total)} ({d.totalCount} processos)
+      </div>
+    </div>
+  )
+}
+
 export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
   const demandantes = useMemo(() => countByDemandante(itens, 10), [itens])
   const prioridades = useMemo(() => countByPrioridade(itens), [itens])
-  const fontes = useMemo(() => sumValorByFonte(itens, 10), [itens])
+  const fontesStacked = useMemo(() => stackedByFontePae(itens, 12), [itens])
   const comSemPae = useMemo(() => countComSemPae(itens), [itens])
 
   const demandanteConfig: ChartConfig = { value: { label: "Itens", color: "var(--chart-2)" } }
-  const fonteConfig: ChartConfig = { value: { label: "Valor estimado", color: "var(--chart-4)" } }
+  const fonteStackedConfig: ChartConfig = {
+    comPaeValor: { label: "Com PAE", color: "var(--status-ok-foreground)" },
+    semPaeValor: { label: "Sem PAE", color: "var(--status-archived-foreground)" },
+  }
 
   const prioridadeConfig: ChartConfig = useMemo(() => {
     const cfg: ChartConfig = { value: { label: "Itens" } }
@@ -121,30 +157,31 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
         </CardContent>
       </Card>
 
-      {/* Valor estimado por fonte de recurso */}
+      {/* Valor e nº de processos por fonte de recurso (empilhado por PAE) */}
       <Card>
         <CardHeader>
-          <CardTitle>Valor estimado por fonte de recurso</CardTitle>
-          <CardDescription>Top 10 fontes por soma do valor total estimado</CardDescription>
+          <CardTitle>Valor e processos por fonte de recurso</CardTitle>
+          <CardDescription>Empilhado por Com PAE / Sem PAE — passe o mouse para ver o nº de processos</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={fonteConfig} className="h-[300px] w-full">
-            <BarChart data={fontes} layout="vertical" margin={{ left: 8, right: 32 }}>
+          <ChartContainer config={fonteStackedConfig} className="h-[300px] w-full">
+            <BarChart data={fontesStacked} layout="vertical" margin={{ left: 8, right: 8 }}>
               <CartesianGrid horizontal={false} />
               <XAxis type="number" hide />
               <YAxis
                 type="category"
-                dataKey="label"
+                dataKey="fonte"
                 tickLine={false}
                 axisLine={false}
                 width={140}
                 tick={{ fontSize: 11 }}
                 tickFormatter={(v: string) => shorten(v, 20)}
               />
-              <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatBRLCompact(Number(value))} />} />
-              <Bar dataKey="value" fill="var(--color-value)" radius={4}>
+              <Tooltip content={<FonteTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+              <Bar dataKey="comPaeValor" stackId="v" fill="var(--color-comPaeValor)" radius={[4, 0, 0, 4]} />
+              <Bar dataKey="semPaeValor" stackId="v" fill="var(--color-semPaeValor)" radius={[0, 4, 4, 0]}>
                 <LabelList
-                  dataKey="value"
+                  dataKey="total"
                   position="right"
                   className="fill-foreground text-xs"
                   formatter={(value: unknown) => formatBRLCompact(Number(value))}
@@ -152,6 +189,16 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
               </Bar>
             </BarChart>
           </ChartContainer>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--status-ok-foreground)" }} />
+              Com PAE
+            </li>
+            <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--status-archived-foreground)" }} />
+              Sem PAE
+            </li>
+          </ul>
         </CardContent>
       </Card>
 

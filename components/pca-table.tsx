@@ -12,35 +12,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { FilterSelect, ALL_VALUE } from "@/components/filter-select"
+import { MultiFilterSelect } from "@/components/multi-filter-select"
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { uniqueValues } from "@/lib/pca-metrics"
 import { formatBRL, formatBRLCompact } from "@/lib/pca-utils"
+import { matchesFilters, countActiveFilters, type PcaFilters } from "@/lib/pca-filters"
 import { cn } from "@/lib/utils"
 import type { PcaItem } from "@/lib/types"
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, FilterX } from "lucide-react"
 
 type SortKey = "ordem" | "demandante" | "valorTotalEstimado" | "prioridade"
 type SortDir = "asc" | "desc"
-
-interface Filters {
-  demandante: string
-  prioridade: string
-  fonte: string
-  grupo: string
-  temPae: string
-  qdqq: string
-}
-
-const INITIAL_FILTERS: Filters = {
-  demandante: ALL_VALUE,
-  prioridade: ALL_VALUE,
-  fonte: ALL_VALUE,
-  grupo: ALL_VALUE,
-  temPae: ALL_VALUE,
-  qdqq: ALL_VALUE,
-}
 
 const PAGE_SIZE = 10
 const PRIORIDADE_ORDEM = ["ALTA", "MÉDIA", "BAIXA", "NÃO INFORMADA"]
@@ -125,13 +108,17 @@ function SortHeader({
 
 export function PcaTable({
   itens,
+  filters,
+  onFiltersChange,
   onRowClick,
 }: {
+  /** Lista COMPLETA (não filtrada) — a tabela aplica os filtros e a busca internamente. */
   itens: PcaItem[]
+  filters: PcaFilters
+  onFiltersChange: (filters: PcaFilters) => void
   onRowClick: (item: PcaItem) => void
 }) {
   const [search, setSearch] = useState("")
-  const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS)
   const [sortKey, setSortKey] = useState<SortKey>("ordem")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [page, setPage] = useState(0)
@@ -147,57 +134,31 @@ export function PcaTable({
     [itens],
   )
 
-  function updateFilter(key: keyof Filters, value: string) {
-    setFilters((prev) => ({ ...prev, [key]: value }))
+  function updateFilter(key: keyof PcaFilters, values: string[]) {
+    onFiltersChange({ ...filters, [key]: values })
     setPage(0)
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     let result = itens.filter((i) => {
+      if (!matchesFilters(i, filters)) return false
       if (q) {
         const haystack = `${i.descricao} ${i.demandante} ${i.paeRaw} ${i.modalidade}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
-      if (filters.demandante !== ALL_VALUE && i.demandante !== filters.demandante) return false
-      if (filters.prioridade !== ALL_VALUE && i.prioridade !== filters.prioridade) return false
-      if (filters.fonte !== ALL_VALUE && i.fonteRecurso !== filters.fonte) return false
-      if (filters.grupo !== ALL_VALUE && i.grupo !== filters.grupo) return false
-      if (filters.temPae === "Com PAE" && !i.temPae) return false
-      if (filters.temPae === "Sem PAE" && i.temPae) return false
-      if (filters.qdqq !== ALL_VALUE && i.dataDesejada !== filters.qdqq) return false
       return true
     })
     result = [...result].sort((a, b) => (sortDir === "asc" ? compare(a, b, sortKey) : -compare(a, b, sortKey)))
     return result
   }, [itens, search, filters, sortKey, sortDir])
 
-  const activeFilters =
-    search.trim() !== "" || Object.values(filters).some((v) => v !== ALL_VALUE)
-
-  /** Resumo (valor total + com/sem PAE) da fonte selecionada no filtro "Fonte". */
-  const fonteBreakdown = useMemo(() => {
-    if (filters.fonte === ALL_VALUE) return null
-    const subset = itens.filter((i) => i.fonteRecurso === filters.fonte)
-    const comPae = subset.filter((i) => i.temPae)
-    const semPae = subset.filter((i) => !i.temPae)
-    const sum = (arr: PcaItem[]) => arr.reduce((acc, i) => acc + (i.valorTotalEstimado ?? 0), 0)
-    return {
-      fonte: filters.fonte,
-      total: sum(subset),
-      totalCount: subset.length,
-      data: [
-        { label: "Com PAE", value: sum(comPae), count: comPae.length },
-        { label: "Sem PAE", value: sum(semPae), count: semPae.length },
-      ],
-    }
-  }, [itens, filters.fonte])
-
-  const fonteChartConfig: ChartConfig = { value: { label: "Valor estimado" } }
+  const activeFilterCount = countActiveFilters(filters)
+  const hasActiveFilters = search.trim() !== "" || activeFilterCount > 0
 
   function resetFilters() {
     setSearch("")
-    setFilters(INITIAL_FILTERS)
+    onFiltersChange({ demandante: [], prioridade: [], fonte: [], grupo: [], temPae: [], qdqq: [] })
     setPage(0)
   }
 
@@ -212,6 +173,27 @@ export function PcaTable({
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+
+  // Resumo (valor + Com/Sem PAE) quando exatamente UMA fonte está selecionada no filtro.
+  const fonteBreakdown = useMemo(() => {
+    if (filters.fonte.length !== 1) return null
+    const fonte = filters.fonte[0]
+    const subset = itens.filter((i) => i.fonteRecurso === fonte)
+    const comPae = subset.filter((i) => i.temPae)
+    const semPae = subset.filter((i) => !i.temPae)
+    const sum = (arr: PcaItem[]) => arr.reduce((acc, i) => acc + (i.valorTotalEstimado ?? 0), 0)
+    return {
+      fonte,
+      total: sum(subset),
+      totalCount: subset.length,
+      data: [
+        { label: "Com PAE", value: sum(comPae), count: comPae.length },
+        { label: "Sem PAE", value: sum(semPae), count: semPae.length },
+      ],
+    }
+  }, [itens, filters.fonte])
+
+  const fonteChartConfig: ChartConfig = { value: { label: "Valor estimado" } }
 
   return (
     <Card className="gap-4 p-4">
@@ -232,7 +214,7 @@ export function PcaTable({
             aria-label="Buscar itens do PCA"
           />
         </div>
-        {activeFilters && (
+        {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={resetFilters} className="lg:w-auto">
             <FilterX data-icon="inline-start" />
             Limpar filtros
@@ -240,43 +222,43 @@ export function PcaTable({
         )}
       </div>
 
-      {/* Filtros */}
+      {/* Filtros (multi-seleção) */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-        <FilterSelect
+        <MultiFilterSelect
           label="Demandante"
-          value={filters.demandante}
+          selected={filters.demandante}
           options={options.demandante}
-          onValueChange={(v) => updateFilter("demandante", v)}
+          onChange={(v) => updateFilter("demandante", v)}
         />
-        <FilterSelect
+        <MultiFilterSelect
           label="Prioridade"
-          value={filters.prioridade}
+          selected={filters.prioridade}
           options={options.prioridade}
-          onValueChange={(v) => updateFilter("prioridade", v)}
+          onChange={(v) => updateFilter("prioridade", v)}
         />
-        <FilterSelect
+        <MultiFilterSelect
           label="Fonte"
-          value={filters.fonte}
+          selected={filters.fonte}
           options={options.fonte}
-          onValueChange={(v) => updateFilter("fonte", v)}
+          onChange={(v) => updateFilter("fonte", v)}
         />
-        <FilterSelect
+        <MultiFilterSelect
           label="Grupo"
-          value={filters.grupo}
+          selected={filters.grupo}
           options={options.grupo}
-          onValueChange={(v) => updateFilter("grupo", v)}
+          onChange={(v) => updateFilter("grupo", v)}
         />
-        <FilterSelect
+        <MultiFilterSelect
           label="Situação do PAE"
-          value={filters.temPae}
+          selected={filters.temPae}
           options={["Com PAE", "Sem PAE"]}
-          onValueChange={(v) => updateFilter("temPae", v)}
+          onChange={(v) => updateFilter("temPae", v)}
         />
-        <FilterSelect
+        <MultiFilterSelect
           label="QDQQ"
-          value={filters.qdqq}
+          selected={filters.qdqq}
           options={options.qdqq}
-          onValueChange={(v) => updateFilter("qdqq", v)}
+          onChange={(v) => updateFilter("qdqq", v)}
         />
       </div>
 
@@ -304,9 +286,7 @@ export function PcaTable({
                 tick={{ fontSize: 12 }}
               />
               <ChartTooltip
-                content={
-                  <ChartTooltipContent formatter={(value) => formatBRLCompact(Number(value))} />
-                }
+                content={<ChartTooltipContent formatter={(value) => formatBRLCompact(Number(value))} />}
               />
               <Bar dataKey="value" radius={4}>
                 {fonteBreakdown.data.map((entry) => (

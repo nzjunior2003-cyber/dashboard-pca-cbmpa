@@ -74,3 +74,38 @@ export function uniqueValues(itens: PcaItem[], key: (i: PcaItem) => string): str
   }
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))
 }
+
+export interface FonteStackedItem {
+  fonte: string
+  comPaeValor: number
+  comPaeCount: number
+  semPaeValor: number
+  semPaeCount: number
+  total: number
+  totalCount: number
+}
+
+/** Valor estimado e nº de processos por fonte, dividido em Com PAE / Sem PAE (para gráfico empilhado). */
+export function stackedByFontePae(itens: PcaItem[], top = 12): FonteStackedItem[] {
+  const map = new Map<string, FonteStackedItem>()
+  for (const i of itens) {
+    const label = i.fonteRecurso.trim() || "(não informado)"
+    const valor = i.valorTotalEstimado ?? 0
+    const prev =
+      map.get(label) ??
+      ({ fonte: label, comPaeValor: 0, comPaeCount: 0, semPaeValor: 0, semPaeCount: 0, total: 0, totalCount: 0 } as FonteStackedItem)
+    if (i.temPae) {
+      prev.comPaeValor += valor
+      prev.comPaeCount += 1
+    } else {
+      prev.semPaeValor += valor
+      prev.semPaeCount += 1
+    }
+    prev.total += valor
+    prev.totalCount += 1
+    map.set(label, prev)
+  }
+  return Array.from(map.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, top)
+}

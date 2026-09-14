@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { usePcaItens } from "@/hooks/use-pca"
 import { computeKpis } from "@/lib/pca-metrics"
+import { filterItens, countActiveFilters, INITIAL_FILTERS, type PcaFilters } from "@/lib/pca-filters"
 import type { PcaItem } from "@/lib/types"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { KpiCards } from "@/components/kpi-cards"
@@ -18,24 +19,27 @@ export default function Page() {
   const { itens, source, status, error, lastUpdated, refresh } = usePcaItens()
   const [selected, setSelected] = useState<PcaItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [paeFilter, setPaeFilter] = useState<"com" | "sem" | null>(null)
+  const [filters, setFilters] = useState<PcaFilters>(INITIAL_FILTERS)
 
-  const kpis = useMemo(() => computeKpis(itens), [itens])
   const loading = status === "loading"
 
-  const itensDaTabela = useMemo(() => {
-    if (paeFilter === "com") return itens.filter((i) => i.temPae)
-    if (paeFilter === "sem") return itens.filter((i) => !i.temPae)
-    return itens
-  }, [itens, paeFilter])
+  // Estado de filtros compartilhado: cards, gráficos e tabela reagem juntos.
+  const itensFiltrados = useMemo(() => filterItens(itens, filters), [itens, filters])
+  const kpis = useMemo(() => computeKpis(itensFiltrados), [itensFiltrados])
+  const activeFilterCount = countActiveFilters(filters)
 
   function handleRowClick(item: PcaItem) {
     setSelected(item)
     setSheetOpen(true)
   }
 
-  function handleTogglePaeFilter(value: "com" | "sem") {
-    setPaeFilter((prev) => (prev === value ? null : value))
+  function handleToggleTemPae(value: "Com PAE" | "Sem PAE") {
+    setFilters((prev) => ({
+      ...prev,
+      temPae: prev.temPae.includes(value)
+        ? prev.temPae.filter((v) => v !== value)
+        : [...prev.temPae, value],
+    }))
   }
 
   return (
@@ -76,30 +80,31 @@ export default function Page() {
         <KpiCards
           kpis={kpis}
           loading={loading}
-          paeFilterActive={paeFilter}
-          onTogglePaeFilter={handleTogglePaeFilter}
+          temPaeFilter={filters.temPae}
+          onToggleTemPae={handleToggleTemPae}
         />
 
         {loading ? (
           <ContentSkeleton />
         ) : (
           <>
-            {paeFilter && (
+            {activeFilterCount > 0 && (
               <Alert>
                 <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
                   <span>
-                    Mostrando apenas itens <strong>{paeFilter === "com" ? "Com PAE" : "Sem PAE"}</strong> (
-                    {itensDaTabela.length} de {itens.length}).
+                    {activeFilterCount} filtro(s) ativo(s) — mostrando{" "}
+                    <strong>{itensFiltrados.length}</strong> de {itens.length} itens (cards e gráficos
+                    já refletem esse recorte).
                   </span>
-                  <Button size="sm" variant="outline" onClick={() => setPaeFilter(null)}>
+                  <Button size="sm" variant="outline" onClick={() => setFilters(INITIAL_FILTERS)}>
                     <X data-icon="inline-start" />
-                    Limpar filtro
+                    Limpar todos os filtros
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
-            <PcaTable itens={itensDaTabela} onRowClick={handleRowClick} />
-            <DashboardCharts itens={itens} />
+            <PcaTable itens={itens} filters={filters} onFiltersChange={setFilters} onRowClick={handleRowClick} />
+            <DashboardCharts itens={itensFiltrados} />
           </>
         )}
       </main>

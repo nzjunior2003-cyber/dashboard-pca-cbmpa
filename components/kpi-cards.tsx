@@ -37,11 +37,11 @@ const TONES: Record<KpiDef["tone"], string> = {
 interface KpiCardsProps {
   kpis: PcaKpis
   loading: boolean
-  paeFilterActive: "com" | "sem" | null
-  onTogglePaeFilter: (value: "com" | "sem") => void
+  temPaeFilter: string[]
+  onToggleTemPae: (value: "Com PAE" | "Sem PAE") => void
 }
 
-export function KpiCards({ kpis, loading, paeFilterActive, onTogglePaeFilter }: KpiCardsProps) {
+export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCardsProps) {
   const cards: KpiDef[] = [
     {
       key: "total",
@@ -99,8 +99,9 @@ export function KpiCards({ kpis, loading, paeFilterActive, onTogglePaeFilter }: 
     <section aria-label="Indicadores principais">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {cards.map((c) => {
-          const filterKey = c.key === "comPae" ? "com" : c.key === "semPae" ? "sem" : null
-          const isActive = filterKey !== null && paeFilterActive === filterKey
+          const filterKey: "Com PAE" | "Sem PAE" | null =
+            c.key === "comPae" ? "Com PAE" : c.key === "semPae" ? "Sem PAE" : null
+          const isActive = filterKey !== null && temPaeFilter.includes(filterKey)
           const content = (
             <>
               <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pt-4 pb-0">
@@ -136,11 +137,11 @@ export function KpiCards({ kpis, loading, paeFilterActive, onTogglePaeFilter }: 
                 role="button"
                 tabIndex={0}
                 aria-pressed={isActive}
-                onClick={() => onTogglePaeFilter(filterKey)}
+                onClick={() => onToggleTemPae(filterKey)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault()
-                    onTogglePaeFilter(filterKey)
+                    onToggleTemPae(filterKey)
                   }
                 }}
                 className={cn(
