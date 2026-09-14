@@ -51,6 +51,32 @@ export function countByDemandante(itens: PcaItem[], top = 10): CountItem[] {
   return tally(itens, (i) => i.demandante).slice(0, top)
 }
 
+export interface DemandanteStackedItem {
+  demandante: string
+  comPaeCount: number
+  semPaeCount: number
+  totalCount: number
+}
+
+/** Nº de itens por demandante, dividido em Com PAE / Sem PAE (para gráfico empilhado). */
+export function stackedByDemandantePae(itens: PcaItem[], top = 10): DemandanteStackedItem[] {
+  const map = new Map<string, DemandanteStackedItem>()
+  for (const i of itens) {
+    const label = i.demandante.trim() || "(não informado)"
+    const prev = map.get(label) ?? { demandante: label, comPaeCount: 0, semPaeCount: 0, totalCount: 0 }
+    if (i.temPae) {
+      prev.comPaeCount += 1
+    } else {
+      prev.semPaeCount += 1
+    }
+    prev.totalCount += 1
+    map.set(label, prev)
+  }
+  return Array.from(map.values())
+    .sort((a, b) => b.totalCount - a.totalCount)
+    .slice(0, top)
+}
+
 export function countByPrioridade(itens: PcaItem[]): CountItem[] {
   const order = ["ALTA", "MÉDIA", "BAIXA", "NÃO INFORMADA"]
   const items = tally(itens, (i) => i.prioridadeKey)

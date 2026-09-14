@@ -5,9 +5,10 @@ import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, XAxis, YA
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import {
-  countByDemandante,
   stackedByFonteStatus,
+  stackedByDemandantePae,
   type FonteStatusStackedItem,
+  type DemandanteStackedItem,
 } from "@/lib/pca-metrics"
 import { formatBRL, STATUS_META } from "@/lib/pca-utils"
 import type { PcaItem, PcaStatusKey } from "@/lib/types"
@@ -86,11 +87,79 @@ function FonteTooltip({
   )
 }
 
+function DemandanteTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: DemandanteStackedItem }>
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  const d = payload[0].payload
+  return (
+    <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-md">
+      <p className="mb-1.5 font-medium text-foreground">{d.demandante}</p>
+      <div className="flex items-center gap-1.5">
+        <span
+          className="size-2 rounded-full border border-black/10"
+          style={{ backgroundColor: PAE_COLORS["Com PAE"] }}
+        />
+        <span className="text-muted-foreground">Com PAE:</span>
+        <span className="font-medium text-foreground">{d.comPaeCount} processo(s)</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span
+          className="size-2 rounded-full border border-black/10"
+          style={{ backgroundColor: PAE_COLORS["Sem PAE"] }}
+        />
+        <span className="text-muted-foreground">Sem PAE:</span>
+        <span className="font-medium text-foreground">{d.semPaeCount} processo(s)</span>
+      </div>
+      <div className="mt-1.5 border-t border-border pt-1.5 font-medium text-foreground">
+        Total: {d.totalCount} processo(s)
+      </div>
+    </div>
+  )
+}
+
+/** Rótulo "XX% (n)" posicionado do lado de fora de cada fatia da pizza. */
+function renderPieLabel(props: unknown) {
+  const p = props as {
+    cx?: number
+    cy?: number
+    midAngle?: number
+    outerRadius?: number
+    value?: number
+    payload?: PieSliceDatum
+  }
+  const value = p.value ?? p.payload?.value ?? 0
+  const pctFiltered = p.payload?.pctFiltered ?? 0
+  if (!value || p.cx == null || p.cy == null || p.midAngle == null || p.outerRadius == null) return null
+  const RADIAN = Math.PI / 180
+  const radius = p.outerRadius + 18
+  const x = p.cx + radius * Math.cos(-p.midAngle * RADIAN)
+  const y = p.cy + radius * Math.sin(-p.midAngle * RADIAN)
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={x > p.cx ? "start" : "end"}
+      dominantBaseline="central"
+      className="fill-foreground text-[11px] font-medium"
+    >
+      {`${pctFiltered.toFixed(0)}% (${value})`}
+    </text>
+  )
+}
+
 export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; totalCount: number }) {
-  const demandantes = useMemo(() => countByDemandante(itens, 10), [itens])
+  const demandantesStacked = useMemo(() => stackedByDemandantePae(itens, 10), [itens])
   const fontesStacked = useMemo(() => stackedByFonteStatus(itens, 12), [itens])
 
-  const demandanteConfig: ChartConfig = { value: { label: "Itens", color: "var(--chart-2)" } }
+  const demandanteConfig: ChartConfig = {
+    comPaeCount: { label: "Com PAE", color: PAE_COLORS["Com PAE"] },
+    semPaeCount: { label: "Sem PAE", color: PAE_COLORS["Sem PAE"] },
+  }
   const fonteStackedConfig: ChartConfig = {
     aguardandoValor: { label: STATUS_META.aguardando.label, color: STATUS_META.aguardando.chartColor },
     andamentoValor: { label: STATUS_META.andamento.label, color: STATUS_META.andamento.chartColor },
@@ -120,32 +189,68 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
 
   return (
     <section aria-label="Gráficos" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* Itens por demandante */}
+      {/* Itens por demandante (empilhado Com/Sem PAE) */}
       <Card>
         <CardHeader>
           <CardTitle>Itens por demandante</CardTitle>
-          <CardDescription>Top 10 setores com mais itens planejados no PCA</CardDescription>
+          <CardDescription>Top 10 setores — total, com PAE e sem PAE</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={demandanteConfig} className="h-[300px] w-full">
-            <BarChart data={demandantes} layout="vertical" margin={{ left: 8, right: 24 }}>
+            <BarChart data={demandantesStacked} layout="vertical" margin={{ left: 8, right: 32 }}>
               <CartesianGrid horizontal={false} />
               <XAxis type="number" hide />
               <YAxis
                 type="category"
-                dataKey="label"
+                dataKey="demandante"
                 tickLine={false}
                 axisLine={false}
                 width={140}
                 tick={{ fontSize: 11 }}
                 tickFormatter={(v: string) => shorten(v, 20)}
               />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="value" fill="var(--color-value)" radius={4}>
-                <LabelList dataKey="value" position="right" className="fill-foreground text-xs" />
+              <Tooltip content={<DemandanteTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+              <Bar
+                dataKey="comPaeCount"
+                stackId="v"
+                fill={PAE_COLORS["Com PAE"]}
+                stroke="var(--border)"
+                strokeWidth={1}
+                radius={[4, 0, 0, 4]}
+              />
+              <Bar
+                dataKey="semPaeCount"
+                stackId="v"
+                fill={PAE_COLORS["Sem PAE"]}
+                stroke="var(--border)"
+                strokeWidth={1}
+                radius={[0, 4, 4, 0]}
+              >
+                <LabelList
+                  dataKey="totalCount"
+                  position="right"
+                  className="fill-foreground text-xs"
+                />
               </Bar>
             </BarChart>
           </ChartContainer>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className="size-2 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: PAE_COLORS["Com PAE"] }}
+              />
+              Com PAE
+            </li>
+            <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className="size-2 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: PAE_COLORS["Sem PAE"] }}
+              />
+              Sem PAE
+            </li>
+            <li className="text-xs text-muted-foreground">(número ao final da barra = total)</li>
+          </ul>
         </CardContent>
       </Card>
 
@@ -153,13 +258,25 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
       <Card>
         <CardHeader>
           <CardTitle>Distribuição por status</CardTitle>
-          <CardDescription>% do filtro selecionado e % do total geral de itens do PCA</CardDescription>
+          <CardDescription>% e quantidade na fatia — % do filtro e % do total na legenda</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={statusConfig} className="mx-auto aspect-square h-[260px]">
-            <PieChart>
+          <p className="text-center text-2xl font-semibold text-foreground">{itens.length}</p>
+          <p className="-mt-0.5 mb-2 text-center text-xs text-muted-foreground">
+            itens no filtro selecionado (total)
+          </p>
+          <ChartContainer config={statusConfig} className="mx-auto aspect-square h-[280px]">
+            <PieChart margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie data={statusData} dataKey="value" nameKey="label" strokeWidth={2}>
+              <Pie
+                data={statusData}
+                dataKey="value"
+                nameKey="label"
+                outerRadius={75}
+                strokeWidth={2}
+                label={renderPieLabel}
+                labelLine={{ stroke: "var(--border)" }}
+              >
                 {statusData.map((entry) => (
                   <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
@@ -275,13 +392,25 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
       <Card>
         <CardHeader>
           <CardTitle>Itens com PAE vs sem PAE</CardTitle>
-          <CardDescription>% do filtro selecionado e % do total geral de itens do PCA</CardDescription>
+          <CardDescription>% e quantidade na fatia — % do filtro e % do total na legenda</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[260px]">
-            <PieChart>
+          <p className="text-center text-2xl font-semibold text-foreground">{itens.length}</p>
+          <p className="-mt-0.5 mb-2 text-center text-xs text-muted-foreground">
+            itens no filtro selecionado (total)
+          </p>
+          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[280px]">
+            <PieChart margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie data={paeData} dataKey="value" nameKey="label" strokeWidth={2}>
+              <Pie
+                data={paeData}
+                dataKey="value"
+                nameKey="label"
+                outerRadius={75}
+                strokeWidth={2}
+                label={renderPieLabel}
+                labelLine={{ stroke: "var(--border)" }}
+              >
                 {paeData.map((entry) => (
                   <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
