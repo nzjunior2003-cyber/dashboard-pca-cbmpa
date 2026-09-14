@@ -8,10 +8,10 @@ import {
   countByDemandante,
   countByPrioridade,
   countComSemPae,
-  stackedByFontePae,
-  type FonteStackedItem,
+  stackedByFonteStatus,
+  type FonteStatusStackedItem,
 } from "@/lib/pca-metrics"
-import { formatBRL, formatBRLCompact } from "@/lib/pca-utils"
+import { formatBRL, STATUS_META } from "@/lib/pca-utils"
 import type { PcaItem } from "@/lib/types"
 
 const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"]
@@ -32,26 +32,35 @@ function shorten(label: string, max = 22) {
   return label.length > max ? `${label.slice(0, max - 1)}…` : label
 }
 
-function FonteTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: FonteStackedItem }> }) {
+function FonteTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: FonteStatusStackedItem }>
+}) {
   if (!active || !payload || payload.length === 0) return null
   const d = payload[0].payload
+  const rows: Array<{ key: PcaItem["status"]; valor: number; count: number }> = [
+    { key: "aguardando", valor: d.aguardandoValor, count: d.aguardandoCount },
+    { key: "andamento", valor: d.andamentoValor, count: d.andamentoCount },
+    { key: "contratado", valor: d.contratadoValor, count: d.contratadoCount },
+  ]
   return (
     <div className="rounded-lg border border-border bg-background p-2.5 text-xs shadow-md">
       <p className="mb-1.5 font-medium text-foreground">{d.fonte}</p>
-      <div className="flex items-center gap-1.5">
-        <span className="size-2 rounded-full" style={{ backgroundColor: "var(--status-ok-foreground)" }} />
-        <span className="text-muted-foreground">Com PAE:</span>
-        <span className="font-medium text-foreground">
-          {formatBRL(d.comPaeValor)} ({d.comPaeCount} proc.)
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="size-2 rounded-full" style={{ backgroundColor: "var(--status-archived-foreground)" }} />
-        <span className="text-muted-foreground">Sem PAE:</span>
-        <span className="font-medium text-foreground">
-          {formatBRL(d.semPaeValor)} ({d.semPaeCount} proc.)
-        </span>
-      </div>
+      {rows.map((r) => (
+        <div key={r.key} className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full border border-black/10"
+            style={{ backgroundColor: STATUS_META[r.key].chartColor }}
+          />
+          <span className="text-muted-foreground">{STATUS_META[r.key].label}:</span>
+          <span className="font-medium text-foreground">
+            {formatBRL(r.valor)} ({r.count} proc.)
+          </span>
+        </div>
+      ))}
       <div className="mt-1.5 border-t border-border pt-1.5 font-medium text-foreground">
         Total: {formatBRL(d.total)} ({d.totalCount} processos)
       </div>
@@ -62,13 +71,14 @@ function FonteTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
   const demandantes = useMemo(() => countByDemandante(itens, 10), [itens])
   const prioridades = useMemo(() => countByPrioridade(itens), [itens])
-  const fontesStacked = useMemo(() => stackedByFontePae(itens, 12), [itens])
+  const fontesStacked = useMemo(() => stackedByFonteStatus(itens, 12), [itens])
   const comSemPae = useMemo(() => countComSemPae(itens), [itens])
 
   const demandanteConfig: ChartConfig = { value: { label: "Itens", color: "var(--chart-2)" } }
   const fonteStackedConfig: ChartConfig = {
-    comPaeValor: { label: "Com PAE", color: "var(--status-ok-foreground)" },
-    semPaeValor: { label: "Sem PAE", color: "var(--status-archived-foreground)" },
+    aguardandoValor: { label: STATUS_META.aguardando.label, color: STATUS_META.aguardando.chartColor },
+    andamentoValor: { label: STATUS_META.andamento.label, color: STATUS_META.andamento.chartColor },
+    contratadoValor: { label: STATUS_META.contratado.label, color: STATUS_META.contratado.chartColor },
   }
 
   const prioridadeConfig: ChartConfig = useMemo(() => {
@@ -157,11 +167,14 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
         </CardContent>
       </Card>
 
-      {/* Valor e nº de processos por fonte de recurso (empilhado por PAE) */}
+      {/* Valor e nº de processos por fonte de recurso (empilhado por status) */}
       <Card>
         <CardHeader>
           <CardTitle>Valor e processos por fonte de recurso</CardTitle>
-          <CardDescription>Empilhado por Com PAE / Sem PAE — passe o mouse para ver o nº de processos</CardDescription>
+          <CardDescription>
+            Empilhado por status (Aguardando instrução / Em andamento / Contratado) — passe o mouse para
+            ver o nº de processos
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={fonteStackedConfig} className="h-[300px] w-full">
@@ -178,25 +191,59 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
                 tickFormatter={(v: string) => shorten(v, 20)}
               />
               <Tooltip content={<FonteTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-              <Bar dataKey="comPaeValor" stackId="v" fill="var(--color-comPaeValor)" radius={[4, 0, 0, 4]} />
-              <Bar dataKey="semPaeValor" stackId="v" fill="var(--color-semPaeValor)" radius={[0, 4, 4, 0]}>
+              <Bar
+                dataKey="aguardandoValor"
+                stackId="v"
+                fill={STATUS_META.aguardando.chartColor}
+                stroke="var(--border)"
+                strokeWidth={1}
+                radius={[4, 0, 0, 4]}
+              />
+              <Bar
+                dataKey="andamentoValor"
+                stackId="v"
+                fill={STATUS_META.andamento.chartColor}
+                stroke="var(--border)"
+                strokeWidth={1}
+              />
+              <Bar
+                dataKey="contratadoValor"
+                stackId="v"
+                fill={STATUS_META.contratado.chartColor}
+                stroke="var(--border)"
+                strokeWidth={1}
+                radius={[0, 4, 4, 0]}
+              >
                 <LabelList
                   dataKey="total"
                   position="right"
                   className="fill-foreground text-xs"
-                  formatter={(value: unknown) => formatBRLCompact(Number(value))}
+                  formatter={(value: unknown) => formatBRL(Number(value))}
                 />
               </Bar>
             </BarChart>
           </ChartContainer>
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--status-ok-foreground)" }} />
-              Com PAE
+              <span
+                className="size-2 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: STATUS_META.aguardando.chartColor }}
+              />
+              {STATUS_META.aguardando.label}
             </li>
             <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: "var(--status-archived-foreground)" }} />
-              Sem PAE
+              <span
+                className="size-2 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: STATUS_META.andamento.chartColor }}
+              />
+              {STATUS_META.andamento.label}
+            </li>
+            <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className="size-2 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: STATUS_META.contratado.chartColor }}
+              />
+              {STATUS_META.contratado.label}
             </li>
           </ul>
         </CardContent>

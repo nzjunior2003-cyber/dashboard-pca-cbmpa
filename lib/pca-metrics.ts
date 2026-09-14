@@ -77,31 +77,46 @@ export function uniqueValues(itens: PcaItem[], key: (i: PcaItem) => string): str
   return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))
 }
 
-export interface FonteStackedItem {
+export interface FonteStatusStackedItem {
   fonte: string
-  comPaeValor: number
-  comPaeCount: number
-  semPaeValor: number
-  semPaeCount: number
+  contratadoValor: number
+  contratadoCount: number
+  andamentoValor: number
+  andamentoCount: number
+  aguardandoValor: number
+  aguardandoCount: number
   total: number
   totalCount: number
 }
 
-/** Valor estimado e nº de processos por fonte, dividido em Com PAE / Sem PAE (para gráfico empilhado). */
-export function stackedByFontePae(itens: PcaItem[], top = 12): FonteStackedItem[] {
-  const map = new Map<string, FonteStackedItem>()
+/** Valor estimado e nº de processos por fonte, dividido pelas 3 categorias de status (para gráfico empilhado). */
+export function stackedByFonteStatus(itens: PcaItem[], top = 12): FonteStatusStackedItem[] {
+  const map = new Map<string, FonteStatusStackedItem>()
   for (const i of itens) {
     const label = i.fonteRecurso.trim() || "(não informado)"
     const valor = i.valorTotalEstimado ?? 0
     const prev =
       map.get(label) ??
-      ({ fonte: label, comPaeValor: 0, comPaeCount: 0, semPaeValor: 0, semPaeCount: 0, total: 0, totalCount: 0 } as FonteStackedItem)
-    if (i.temPae) {
-      prev.comPaeValor += valor
-      prev.comPaeCount += 1
+      ({
+        fonte: label,
+        contratadoValor: 0,
+        contratadoCount: 0,
+        andamentoValor: 0,
+        andamentoCount: 0,
+        aguardandoValor: 0,
+        aguardandoCount: 0,
+        total: 0,
+        totalCount: 0,
+      } as FonteStatusStackedItem)
+    if (i.status === "contratado") {
+      prev.contratadoValor += valor
+      prev.contratadoCount += 1
+    } else if (i.status === "andamento") {
+      prev.andamentoValor += valor
+      prev.andamentoCount += 1
     } else {
-      prev.semPaeValor += valor
-      prev.semPaeCount += 1
+      prev.aguardandoValor += valor
+      prev.aguardandoCount += 1
     }
     prev.total += valor
     prev.totalCount += 1

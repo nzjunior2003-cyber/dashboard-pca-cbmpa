@@ -38,6 +38,9 @@ function toPcaItem(r: RawMockRow): PcaItem {
     : []
   // fallback simples: se veio string com formato "E-YYYY/NNNNN", mantém como está
   const finalPaeList = r.pae ? (r.pae.match(/\b[Ee]?-?\d{4}\s*\/\s*\d{5,9}\b/g) ?? []) : []
+  const temPae = finalPaeList.length > 0
+  // Exemplo fictício de item já contratado, só para ilustrar as 3 cores de status no mock.
+  const status: PcaItem["status"] = r.ordem === 4 ? "contratado" : temPae ? "andamento" : "aguardando"
   return {
     ordem: r.ordem,
     origem: r.origem,
@@ -58,7 +61,8 @@ function toPcaItem(r: RawMockRow): PcaItem {
     modalidade: r.modalidade,
     paeRaw: r.pae ?? "",
     paeList: finalPaeList,
-    temPae: finalPaeList.length > 0,
+    temPae,
+    status,
   }
 }
 

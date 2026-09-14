@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { formatBRLCompact } from "@/lib/pca-utils"
+import { formatBRL } from "@/lib/pca-utils"
 import type { PcaKpis } from "@/lib/pca-metrics"
 import {
   ListChecks,
@@ -48,7 +48,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
       key: "total",
       label: "Itens do PCA",
       value: String(kpis.totalItens),
-      hint: formatBRLCompact(kpis.valorTotalEstimado) + " estimado",
+      hint: formatBRL(kpis.valorTotalEstimado) + " estimado",
       icon: ListChecks,
       tone: "info",
     },
@@ -81,7 +81,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
     {
       key: "valorTotal",
       label: "Valor total estimado",
-      value: formatBRLCompact(kpis.valorTotalEstimado),
+      value: formatBRL(kpis.valorTotalEstimado),
       hint: "todos os itens do PCA",
       icon: Wallet,
       tone: "neutral",
@@ -89,7 +89,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
     {
       key: "valorRecurso",
       label: "Valor do Recurso",
-      value: formatBRLCompact(kpis.valorRecursoProvavel),
+      value: formatBRL(kpis.valorRecursoProvavel),
       hint: "coluna O — recurso provável",
       icon: CircleDollarSign,
       tone: "info",
@@ -97,7 +97,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
     {
       key: "valorSemPae",
       label: "Valor sem PAE",
-      value: formatBRLCompact(kpis.valorSemPae),
+      value: formatBRL(kpis.valorSemPae),
       hint: "ainda não processado",
       icon: Landmark,
       tone: "danger",

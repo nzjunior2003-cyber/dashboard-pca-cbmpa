@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import { fetchPcaItens } from "@/lib/fetch-pca"
+import { fetchPcaItensComStatus } from "@/lib/fetch-pca"
 import { MOCK_PCA_ITENS } from "@/lib/mock-pca-data"
 import type { LoadStatus, PcaItem, SourceKind } from "@/lib/types"
 
@@ -35,7 +35,7 @@ export function usePcaItens() {
 
     setState((prev) => ({ ...prev, status: "loading", error: null }))
     try {
-      const data = await fetchPcaItens(controller.signal)
+      const data = await fetchPcaItensComStatus(controller.signal)
       setState({
         itens: data,
         source: "live",

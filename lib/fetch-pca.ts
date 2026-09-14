@@ -1,5 +1,6 @@
 import Papa from "papaparse"
-import { normalizeRows } from "./pca-utils"
+import { normalizeRows, applyStatus } from "./pca-utils"
+import { fetchContratadoPaeSet } from "./fetch-processos-status"
 import type { PcaItem, RawRow } from "./types"
 
 // URL do CSV publicado da planilha do Google Sheets (arquivo "GERAL.xlsx", aba "GERAL PCA").
@@ -29,4 +30,22 @@ export async function fetchPcaItens(signal?: AbortSignal): Promise<PcaItem[]> {
 
   const fields = result.meta.fields ?? Object.keys(result.data[0] ?? {})
   return normalizeRows(result.data, fields)
+}
+
+/**
+ * Busca os itens do PCA e, em seguida, cruza com o painel de Processos 2026
+ * (pelo número do PAE) para determinar o status de cada item. Se o
+ * cruzamento falhar (planilha de processos indisponível etc.), os itens do
+ * PCA são retornados mesmo assim, com o status provisório baseado apenas em
+ * ter ou não PAE.
+ */
+export async function fetchPcaItensComStatus(signal?: AbortSignal): Promise<PcaItem[]> {
+  const itens = await fetchPcaItens(signal)
+  try {
+    const contratadoSet = await fetchContratadoPaeSet(signal)
+    return applyStatus(itens, contratadoSet)
+  } catch (err) {
+    console.warn("Não foi possível cruzar status com Processos 2026:", err)
+    return itens
+  }
 }

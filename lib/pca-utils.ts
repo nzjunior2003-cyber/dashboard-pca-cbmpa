@@ -1,4 +1,5 @@
 import type { PcaItem, PrioridadeKey, RawRow } from "./types"
+import { normalizePaeForMatch } from "./fetch-processos-status"
 
 const norm = (s: string | undefined | null) => (s ?? "").trim()
 
@@ -151,6 +152,8 @@ export function normalizeRow(row: RawRow, map: ColumnMap): PcaItem | null {
     paeRaw,
     paeList,
     temPae: paeList.length > 0,
+    // Valor provisório; é recalculado por applyStatus() após o cruzamento com Processos 2026.
+    status: paeList.length > 0 ? "andamento" : "aguardando",
   }
 }
 
@@ -162,4 +165,40 @@ export function normalizeRows(rows: RawRow[], fields: string[]): PcaItem[] {
     if (item) out.push(item)
   }
   return out
+}
+
+/**
+ * Aplica o status definitivo de cada item cruzando os PAEs com o conjunto de
+ * PAEs "contratado" vindo do painel de Processos 2026.
+ */
+export function applyStatus(itens: PcaItem[], contratadoPaeSet: Set<string>): PcaItem[] {
+  return itens.map((i) => {
+    const isContratado = i.paeList.some((p) => contratadoPaeSet.has(normalizePaeForMatch(p)))
+    const status: PcaItem["status"] = isContratado ? "contratado" : i.temPae ? "andamento" : "aguardando"
+    return { ...i, status }
+  })
+}
+
+export const STATUS_META: Record<
+  PcaItem["status"],
+  { label: string; className: string; dot: string; chartColor: string }
+> = {
+  contratado: {
+    label: "Contratado",
+    className: "bg-status-ok text-status-ok-foreground",
+    dot: "bg-status-ok-foreground",
+    chartColor: "var(--status-ok)",
+  },
+  andamento: {
+    label: "Em andamento",
+    className: "bg-status-warn text-status-warn-foreground",
+    dot: "bg-status-warn-foreground",
+    chartColor: "var(--status-warn)",
+  },
+  aguardando: {
+    label: "Aguardando instrução",
+    className: "bg-status-late text-status-late-foreground",
+    dot: "bg-status-late-foreground",
+    chartColor: "var(--status-late)",
+  },
 }

@@ -1,8 +1,9 @@
 import type { PcaItem } from "./types"
+import { STATUS_META } from "./pca-utils"
 
 export interface PcaFilters {
   demandante: string[]
-  prioridade: string[]
+  status: string[] // rótulos de STATUS_META, ex.: "Contratado", "Em andamento", "Aguardando instrução"
   fonte: string[]
   grupo: string[]
   temPae: string[] // subconjunto de ["Com PAE", "Sem PAE"]
@@ -11,7 +12,7 @@ export interface PcaFilters {
 
 export const INITIAL_FILTERS: PcaFilters = {
   demandante: [],
-  prioridade: [],
+  status: [],
   fonte: [],
   grupo: [],
   temPae: [],
@@ -21,7 +22,7 @@ export const INITIAL_FILTERS: PcaFilters = {
 /** Verdadeiro se o item passa em todos os filtros ativos (arrays vazios = sem restrição). */
 export function matchesFilters(i: PcaItem, filters: PcaFilters): boolean {
   if (filters.demandante.length > 0 && !filters.demandante.includes(i.demandante)) return false
-  if (filters.prioridade.length > 0 && !filters.prioridade.includes(i.prioridade)) return false
+  if (filters.status.length > 0 && !filters.status.includes(STATUS_META[i.status].label)) return false
   if (filters.fonte.length > 0 && !filters.fonte.includes(i.fonteRecurso)) return false
   if (filters.grupo.length > 0 && !filters.grupo.includes(i.grupo)) return false
   if (filters.qdqq.length > 0 && !filters.qdqq.includes(i.dataDesejada)) return false

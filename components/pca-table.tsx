@@ -16,17 +16,18 @@ import { MultiFilterSelect } from "@/components/multi-filter-select"
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { uniqueValues } from "@/lib/pca-metrics"
-import { formatBRL, formatBRLCompact } from "@/lib/pca-utils"
+import { formatBRL, STATUS_META } from "@/lib/pca-utils"
 import { matchesFilters, countActiveFilters, type PcaFilters } from "@/lib/pca-filters"
 import { cn } from "@/lib/utils"
 import type { PcaItem } from "@/lib/types"
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, FilterX } from "lucide-react"
 
-type SortKey = "ordem" | "demandante" | "valorTotalEstimado" | "valorRecursoProvavel" | "prioridade"
+type SortKey = "ordem" | "demandante" | "valorTotalEstimado" | "valorRecursoProvavel" | "status"
 type SortDir = "asc" | "desc"
 
 const PAGE_SIZE = 10
-const PRIORIDADE_ORDEM = ["ALTA", "MÉDIA", "BAIXA", "NÃO INFORMADA"]
+const STATUS_ORDEM: PcaItem["status"][] = ["aguardando", "andamento", "contratado"]
+const STATUS_OPTIONS = STATUS_ORDEM.map((k) => STATUS_META[k].label)
 
 function compare(a: PcaItem, b: PcaItem, key: SortKey): number {
   switch (key) {
@@ -34,8 +35,8 @@ function compare(a: PcaItem, b: PcaItem, key: SortKey): number {
       return (a.valorTotalEstimado ?? -1) - (b.valorTotalEstimado ?? -1)
     case "valorRecursoProvavel":
       return (a.valorRecursoProvavel ?? -1) - (b.valorRecursoProvavel ?? -1)
-    case "prioridade":
-      return PRIORIDADE_ORDEM.indexOf(a.prioridadeKey) - PRIORIDADE_ORDEM.indexOf(b.prioridadeKey)
+    case "status":
+      return STATUS_ORDEM.indexOf(a.status) - STATUS_ORDEM.indexOf(b.status)
     case "ordem":
       return (a.ordem ?? 999999) - (b.ordem ?? 999999)
     default:
@@ -43,21 +44,16 @@ function compare(a: PcaItem, b: PcaItem, key: SortKey): number {
   }
 }
 
-function PrioridadeBadge({ prioridadeKey, prioridade }: { prioridadeKey: PcaItem["prioridadeKey"]; prioridade: string }) {
-  const styles: Record<PcaItem["prioridadeKey"], string> = {
-    ALTA: "bg-status-late text-status-late-foreground",
-    MÉDIA: "bg-status-warn text-status-warn-foreground",
-    BAIXA: "bg-status-ok text-status-ok-foreground",
-    "NÃO INFORMADA": "bg-status-archived text-status-archived-foreground",
-  }
+function StatusBadge({ status }: { status: PcaItem["status"] }) {
+  const meta = STATUS_META[status]
   return (
     <span
       className={cn(
         "inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
-        styles[prioridadeKey],
+        meta.className,
       )}
     >
-      {prioridade || "—"}
+      {meta.label}
     </span>
   )
 }
@@ -128,7 +124,6 @@ export function PcaTable({
   const options = useMemo(
     () => ({
       demandante: uniqueValues(itens, (i) => i.demandante),
-      prioridade: uniqueValues(itens, (i) => i.prioridade),
       fonte: uniqueValues(itens, (i) => i.fonteRecurso),
       grupo: uniqueValues(itens, (i) => i.grupo),
       qdqq: uniqueValues(itens, (i) => i.dataDesejada),
@@ -160,7 +155,7 @@ export function PcaTable({
 
   function resetFilters() {
     setSearch("")
-    onFiltersChange({ demandante: [], prioridade: [], fonte: [], grupo: [], temPae: [], qdqq: [] })
+    onFiltersChange({ demandante: [], status: [], fonte: [], grupo: [], temPae: [], qdqq: [] })
     setPage(0)
   }
 
@@ -233,10 +228,10 @@ export function PcaTable({
           onChange={(v) => updateFilter("demandante", v)}
         />
         <MultiFilterSelect
-          label="Prioridade"
-          selected={filters.prioridade}
-          options={options.prioridade}
-          onChange={(v) => updateFilter("prioridade", v)}
+          label="Status"
+          selected={filters.status}
+          options={STATUS_OPTIONS}
+          onChange={(v) => updateFilter("status", v)}
         />
         <MultiFilterSelect
           label="Fonte"
@@ -288,7 +283,7 @@ export function PcaTable({
                 tick={{ fontSize: 12 }}
               />
               <ChartTooltip
-                content={<ChartTooltipContent formatter={(value) => formatBRLCompact(Number(value))} />}
+                content={<ChartTooltipContent formatter={(value) => formatBRL(Number(value))} />}
               />
               <Bar dataKey="value" radius={4}>
                 {fonteBreakdown.data.map((entry) => (
@@ -305,7 +300,7 @@ export function PcaTable({
                   dataKey="value"
                   position="right"
                   className="fill-foreground text-xs"
-                  formatter={(value: unknown) => formatBRLCompact(Number(value))}
+                  formatter={(value: unknown) => formatBRL(Number(value))}
                 />
               </Bar>
             </BarChart>
@@ -326,10 +321,10 @@ export function PcaTable({
                 onClick={() => toggleSort("demandante")}
               />
               <SortHeader
-                label="Prioridade"
-                active={sortKey === "prioridade"}
+                label="Status"
+                active={sortKey === "status"}
                 dir={sortDir}
-                onClick={() => toggleSort("prioridade")}
+                onClick={() => toggleSort("status")}
               />
               <SortHeader
                 label="Valor estimado"
@@ -377,7 +372,7 @@ export function PcaTable({
                     <span className="line-clamp-2 text-xs text-muted-foreground">{i.demandante || "—"}</span>
                   </TableCell>
                   <TableCell>
-                    <PrioridadeBadge prioridadeKey={i.prioridadeKey} prioridade={i.prioridade} />
+                    <StatusBadge status={i.status} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatBRL(i.valorTotalEstimado)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatBRL(i.valorRecursoProvavel)}</TableCell>
