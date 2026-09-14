@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { FilterSelect, ALL_VALUE } from "@/components/filter-select"
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { uniqueValues } from "@/lib/pca-metrics"
-import { formatBRL } from "@/lib/pca-utils"
+import { formatBRL, formatBRLCompact } from "@/lib/pca-utils"
 import { cn } from "@/lib/utils"
 import type { PcaItem } from "@/lib/types"
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, FilterX } from "lucide-react"
@@ -173,6 +175,26 @@ export function PcaTable({
   const activeFilters =
     search.trim() !== "" || Object.values(filters).some((v) => v !== ALL_VALUE)
 
+  /** Resumo (valor total + com/sem PAE) da fonte selecionada no filtro "Fonte". */
+  const fonteBreakdown = useMemo(() => {
+    if (filters.fonte === ALL_VALUE) return null
+    const subset = itens.filter((i) => i.fonteRecurso === filters.fonte)
+    const comPae = subset.filter((i) => i.temPae)
+    const semPae = subset.filter((i) => !i.temPae)
+    const sum = (arr: PcaItem[]) => arr.reduce((acc, i) => acc + (i.valorTotalEstimado ?? 0), 0)
+    return {
+      fonte: filters.fonte,
+      total: sum(subset),
+      totalCount: subset.length,
+      data: [
+        { label: "Com PAE", value: sum(comPae), count: comPae.length },
+        { label: "Sem PAE", value: sum(semPae), count: semPae.length },
+      ],
+    }
+  }, [itens, filters.fonte])
+
+  const fonteChartConfig: ChartConfig = { value: { label: "Valor estimado" } }
+
   function resetFilters() {
     setSearch("")
     setFilters(INITIAL_FILTERS)
@@ -257,6 +279,57 @@ export function PcaTable({
           onValueChange={(v) => updateFilter("qdqq", v)}
         />
       </div>
+
+      {fonteBreakdown && (
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="text-sm font-medium text-foreground">
+              Fonte: <span className="font-semibold">{fonteBreakdown.fonte}</span>
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {fonteBreakdown.totalCount} item(ns) • valor total estimado:{" "}
+              <span className="font-semibold text-foreground">{formatBRL(fonteBreakdown.total)}</span>
+            </p>
+          </div>
+          <ChartContainer config={fonteChartConfig} className="h-[130px] w-full">
+            <BarChart data={fonteBreakdown.data} layout="vertical" margin={{ left: 8, right: 70 }}>
+              <CartesianGrid horizontal={false} />
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                width={80}
+                tick={{ fontSize: 12 }}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent formatter={(value) => formatBRLCompact(Number(value))} />
+                }
+              />
+              <Bar dataKey="value" radius={4}>
+                {fonteBreakdown.data.map((entry) => (
+                  <Cell
+                    key={entry.label}
+                    fill={
+                      entry.label === "Com PAE"
+                        ? "var(--status-ok-foreground)"
+                        : "var(--status-archived-foreground)"
+                    }
+                  />
+                ))}
+                <LabelList
+                  dataKey="value"
+                  position="right"
+                  className="fill-foreground text-xs"
+                  formatter={(value: unknown) => formatBRLCompact(Number(value))}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
