@@ -136,18 +136,21 @@ function renderPieLabel(props: unknown) {
   const pctFiltered = p.payload?.pctFiltered ?? 0
   if (!value || p.cx == null || p.cy == null || p.midAngle == null || p.outerRadius == null) return null
   const RADIAN = Math.PI / 180
-  const radius = p.outerRadius + 18
+  // Fatias pequenas (< 12%) recebem um "empurrão" extra pra fora, pra não
+  // colidir com o rótulo da fatia vizinha maior.
+  const extra = pctFiltered < 12 ? 34 : 20
+  const radius = p.outerRadius + extra
   const x = p.cx + radius * Math.cos(-p.midAngle * RADIAN)
   const y = p.cy + radius * Math.sin(-p.midAngle * RADIAN)
+  const anchor = x > p.cx ? "start" : "end"
   return (
-    <text
-      x={x}
-      y={y}
-      textAnchor={x > p.cx ? "start" : "end"}
-      dominantBaseline="central"
-      className="fill-foreground text-[11px] font-medium"
-    >
-      {`${pctFiltered.toFixed(0)}% (${value})`}
+    <text x={x} y={y} textAnchor={anchor} className="fill-foreground text-[11px] font-medium">
+      <tspan x={x} dy="-0.3em">
+        {`${pctFiltered.toFixed(0)}%`}
+      </tspan>
+      <tspan x={x} dy="1.1em">
+        {`(${value})`}
+      </tspan>
     </text>
   )
 }
@@ -253,11 +256,10 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
           </ul>
         </CardContent>
       </Card>
-
-      {/* Distribuição por status */}
+      {/* Com PAE vs sem PAE */}
       <Card>
         <CardHeader>
-          <CardTitle>Distribuição por status</CardTitle>
+          <CardTitle>Itens com PAE vs sem PAE</CardTitle>
           <CardDescription>% e quantidade na fatia — % do filtro e % do total na legenda</CardDescription>
         </CardHeader>
         <CardContent>
@@ -265,26 +267,26 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
           <p className="-mt-0.5 mb-2 text-center text-xs text-muted-foreground">
             itens no filtro selecionado (total)
           </p>
-          <ChartContainer config={statusConfig} className="mx-auto aspect-square h-[280px]">
-            <PieChart margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
+          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[300px]">
+            <PieChart margin={{ top: 34, right: 60, bottom: 34, left: 60 }}>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie
-                data={statusData}
+                data={paeData}
                 dataKey="value"
                 nameKey="label"
-                outerRadius={75}
+                outerRadius={65}
                 strokeWidth={2}
                 label={renderPieLabel}
                 labelLine={{ stroke: "var(--border)" }}
               >
-                {statusData.map((entry) => (
+                {paeData.map((entry) => (
                   <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
               </Pie>
             </PieChart>
           </ChartContainer>
           <ul className="mt-3 flex flex-col gap-2">
-            {statusData.map((d) => (
+            {paeData.map((d) => (
               <li key={d.key} className="flex items-start gap-1.5 text-xs">
                 <span
                   className="mt-0.5 size-2 shrink-0 rounded-full border border-black/10"
@@ -305,7 +307,6 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
           </ul>
         </CardContent>
       </Card>
-
       {/* Valor e nº de processos por fonte de recurso (empilhado por status) */}
       <Card>
         <CardHeader>
@@ -387,11 +388,10 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
           </ul>
         </CardContent>
       </Card>
-
-      {/* Com PAE vs sem PAE */}
+      {/* Distribuição por status */}
       <Card>
         <CardHeader>
-          <CardTitle>Itens com PAE vs sem PAE</CardTitle>
+          <CardTitle>Distribuição por status</CardTitle>
           <CardDescription>% e quantidade na fatia — % do filtro e % do total na legenda</CardDescription>
         </CardHeader>
         <CardContent>
@@ -399,26 +399,26 @@ export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; total
           <p className="-mt-0.5 mb-2 text-center text-xs text-muted-foreground">
             itens no filtro selecionado (total)
           </p>
-          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[280px]">
-            <PieChart margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
+          <ChartContainer config={statusConfig} className="mx-auto aspect-square h-[300px]">
+            <PieChart margin={{ top: 34, right: 60, bottom: 34, left: 60 }}>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie
-                data={paeData}
+                data={statusData}
                 dataKey="value"
                 nameKey="label"
-                outerRadius={75}
+                outerRadius={65}
                 strokeWidth={2}
                 label={renderPieLabel}
                 labelLine={{ stroke: "var(--border)" }}
               >
-                {paeData.map((entry) => (
+                {statusData.map((entry) => (
                   <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
               </Pie>
             </PieChart>
           </ChartContainer>
           <ul className="mt-3 flex flex-col gap-2">
-            {paeData.map((d) => (
+            {statusData.map((d) => (
               <li key={d.key} className="flex items-start gap-1.5 text-xs">
                 <span
                   className="mt-0.5 size-2 shrink-0 rounded-full border border-black/10"
