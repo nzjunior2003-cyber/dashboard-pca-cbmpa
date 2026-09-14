@@ -6,26 +6,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import {
   countByDemandante,
-  countByPrioridade,
-  countComSemPae,
   stackedByFonteStatus,
   type FonteStatusStackedItem,
 } from "@/lib/pca-metrics"
 import { formatBRL, STATUS_META } from "@/lib/pca-utils"
-import type { PcaItem } from "@/lib/types"
-
-const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"]
-
-const PRIORIDADE_COLORS: Record<string, string> = {
-  ALTA: "var(--status-late-foreground)",
-  MÉDIA: "var(--status-warn-foreground)",
-  BAIXA: "var(--status-ok-foreground)",
-  "NÃO INFORMADA": "var(--status-archived-foreground)",
-}
+import type { PcaItem, PcaStatusKey } from "@/lib/types"
 
 const PAE_COLORS: Record<string, string> = {
-  "Com PAE": "var(--status-ok-foreground)",
-  "Sem PAE": "var(--status-archived-foreground)",
+  "Com PAE": "var(--status-ok)",
+  "Sem PAE": "var(--status-archived)",
+}
+
+interface PieSliceDatum {
+  key: string
+  label: string
+  value: number
+  fill: string
+  pctFiltered: number
+  pctTotal: number
+}
+
+/** Conta ocorrências dentro do subconjunto filtrado e calcula % do filtro e % do total geral. */
+function buildDualPctData<T extends string>(
+  itens: PcaItem[],
+  totalCount: number,
+  groups: { key: T; label: string; fill: string; predicate: (i: PcaItem) => boolean }[],
+): PieSliceDatum[] {
+  const filteredTotal = itens.length
+  return groups.map((g) => {
+    const value = itens.filter(g.predicate).length
+    return {
+      key: g.key,
+      label: g.label,
+      value,
+      fill: g.fill,
+      pctFiltered: filteredTotal > 0 ? (value / filteredTotal) * 100 : 0,
+      pctTotal: totalCount > 0 ? (value / totalCount) * 100 : 0,
+    }
+  })
 }
 
 function shorten(label: string, max = 22) {
@@ -68,11 +86,9 @@ function FonteTooltip({
   )
 }
 
-export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
+export function DashboardCharts({ itens, totalCount }: { itens: PcaItem[]; totalCount: number }) {
   const demandantes = useMemo(() => countByDemandante(itens, 10), [itens])
-  const prioridades = useMemo(() => countByPrioridade(itens), [itens])
   const fontesStacked = useMemo(() => stackedByFonteStatus(itens, 12), [itens])
-  const comSemPae = useMemo(() => countComSemPae(itens), [itens])
 
   const demandanteConfig: ChartConfig = { value: { label: "Itens", color: "var(--chart-2)" } }
   const fonteStackedConfig: ChartConfig = {
@@ -81,31 +97,26 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
     contratadoValor: { label: STATUS_META.contratado.label, color: STATUS_META.contratado.chartColor },
   }
 
-  const prioridadeConfig: ChartConfig = useMemo(() => {
-    const cfg: ChartConfig = { value: { label: "Itens" } }
-    prioridades.forEach((p) => {
-      cfg[p.label] = { label: p.label, color: PRIORIDADE_COLORS[p.label] ?? "var(--chart-1)" }
-    })
-    return cfg
-  }, [prioridades])
-
-  const prioridadeData = useMemo(
-    () => prioridades.map((p) => ({ ...p, fill: PRIORIDADE_COLORS[p.label] ?? "var(--chart-1)" })),
-    [prioridades],
+  const statusData = useMemo(
+    () =>
+      buildDualPctData<PcaStatusKey>(itens, totalCount, [
+        { key: "aguardando", label: STATUS_META.aguardando.label, fill: STATUS_META.aguardando.chartColor, predicate: (i) => i.status === "aguardando" },
+        { key: "andamento", label: STATUS_META.andamento.label, fill: STATUS_META.andamento.chartColor, predicate: (i) => i.status === "andamento" },
+        { key: "contratado", label: STATUS_META.contratado.label, fill: STATUS_META.contratado.chartColor, predicate: (i) => i.status === "contratado" },
+      ]),
+    [itens, totalCount],
   )
-
-  const paeConfig: ChartConfig = useMemo(() => {
-    const cfg: ChartConfig = { value: { label: "Itens" } }
-    comSemPae.forEach((p) => {
-      cfg[p.label] = { label: p.label, color: PAE_COLORS[p.label] ?? "var(--chart-1)" }
-    })
-    return cfg
-  }, [comSemPae])
+  const statusConfig: ChartConfig = { value: { label: "Itens" } }
 
   const paeData = useMemo(
-    () => comSemPae.map((p) => ({ ...p, fill: PAE_COLORS[p.label] ?? "var(--chart-1)" })),
-    [comSemPae],
+    () =>
+      buildDualPctData(itens, totalCount, [
+        { key: "com", label: "Com PAE", fill: PAE_COLORS["Com PAE"], predicate: (i) => i.temPae },
+        { key: "sem", label: "Sem PAE", fill: PAE_COLORS["Sem PAE"], predicate: (i) => !i.temPae },
+      ]),
+    [itens, totalCount],
   )
+  const paeConfig: ChartConfig = { value: { label: "Itens" } }
 
   return (
     <section aria-label="Gráficos" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -138,29 +149,40 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
         </CardContent>
       </Card>
 
-      {/* Distribuição por prioridade */}
+      {/* Distribuição por status */}
       <Card>
         <CardHeader>
-          <CardTitle>Distribuição por prioridade</CardTitle>
-          <CardDescription>Participação de cada prioridade no total</CardDescription>
+          <CardTitle>Distribuição por status</CardTitle>
+          <CardDescription>% do filtro selecionado e % do total geral de itens do PCA</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={prioridadeConfig} className="mx-auto aspect-square h-[300px]">
+          <ChartContainer config={statusConfig} className="mx-auto aspect-square h-[260px]">
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie data={prioridadeData} dataKey="value" nameKey="label" innerRadius={60} strokeWidth={2}>
-                {prioridadeData.map((entry) => (
-                  <Cell key={entry.label} fill={entry.fill} />
+              <Pie data={statusData} dataKey="value" nameKey="label" strokeWidth={2}>
+                {statusData.map((entry) => (
+                  <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
               </Pie>
             </PieChart>
           </ChartContainer>
-          <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-            {prioridadeData.map((p) => (
-              <li key={p.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: p.fill }} />
-                <span className="truncate">{p.label}</span>
-                <span className="ml-auto font-medium text-foreground">{p.value}</span>
+          <ul className="mt-3 flex flex-col gap-2">
+            {statusData.map((d) => (
+              <li key={d.key} className="flex items-start gap-1.5 text-xs">
+                <span
+                  className="mt-0.5 size-2 shrink-0 rounded-full border border-black/10"
+                  style={{ backgroundColor: d.fill }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-foreground">{d.label}</span>
+                    <span className="font-medium text-foreground">{d.value}</span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {d.pctFiltered.toFixed(0)}% do filtro selecionado · {d.pctTotal.toFixed(0)}% do total
+                    geral
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
@@ -253,25 +275,36 @@ export function DashboardCharts({ itens }: { itens: PcaItem[] }) {
       <Card>
         <CardHeader>
           <CardTitle>Itens com PAE vs sem PAE</CardTitle>
-          <CardDescription>Quantos itens do planejamento já têm processo aberto</CardDescription>
+          <CardDescription>% do filtro selecionado e % do total geral de itens do PCA</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[300px]">
+          <ChartContainer config={paeConfig} className="mx-auto aspect-square h-[260px]">
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie data={paeData} dataKey="value" nameKey="label" innerRadius={60} strokeWidth={2}>
+              <Pie data={paeData} dataKey="value" nameKey="label" strokeWidth={2}>
                 {paeData.map((entry) => (
-                  <Cell key={entry.label} fill={entry.fill} />
+                  <Cell key={entry.key} fill={entry.fill} stroke="var(--border)" />
                 ))}
               </Pie>
             </PieChart>
           </ChartContainer>
-          <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-            {paeData.map((p) => (
-              <li key={p.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: p.fill }} />
-                <span className="truncate">{p.label}</span>
-                <span className="ml-auto font-medium text-foreground">{p.value}</span>
+          <ul className="mt-3 flex flex-col gap-2">
+            {paeData.map((d) => (
+              <li key={d.key} className="flex items-start gap-1.5 text-xs">
+                <span
+                  className="mt-0.5 size-2 shrink-0 rounded-full border border-black/10"
+                  style={{ backgroundColor: d.fill }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-foreground">{d.label}</span>
+                    <span className="font-medium text-foreground">{d.value}</span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {d.pctFiltered.toFixed(0)}% do filtro selecionado · {d.pctTotal.toFixed(0)}% do total
+                    geral
+                  </p>
+                </div>
               </li>
             ))}
           </ul>

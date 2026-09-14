@@ -24,6 +24,8 @@ interface KpiDef {
   icon: LucideIcon
   tone: "neutral" | "info" | "ok" | "muted" | "danger" | "warn"
   clickable?: boolean
+  /** Valores monetários exatos são mais longos — usam fonte menor para caber sem cortar. */
+  longValue?: boolean
 }
 
 const TONES: Record<KpiDef["tone"], string> = {
@@ -85,6 +87,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
       hint: "todos os itens do PCA",
       icon: Wallet,
       tone: "neutral",
+      longValue: true,
     },
     {
       key: "valorRecurso",
@@ -93,6 +96,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
       hint: "coluna O — recurso provável",
       icon: CircleDollarSign,
       tone: "info",
+      longValue: true,
     },
     {
       key: "valorSemPae",
@@ -101,6 +105,7 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
       hint: "ainda não processado",
       icon: Landmark,
       tone: "danger",
+      longValue: true,
     },
   ]
 
@@ -130,7 +135,12 @@ export function KpiCards({ kpis, loading, temPaeFilter, onToggleTemPae }: KpiCar
                 {loading ? (
                   <Skeleton className="h-7 w-16" />
                 ) : (
-                  <div className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                  <div
+                    className={cn(
+                      "font-semibold tabular-nums tracking-tight whitespace-nowrap text-foreground",
+                      c.longValue ? "text-base sm:text-lg" : "text-2xl",
+                    )}
+                  >
                     {c.value}
                   </div>
                 )}

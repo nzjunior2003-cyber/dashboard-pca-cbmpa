@@ -104,7 +104,7 @@ export default function Page() {
               </Alert>
             )}
             <PcaTable itens={itens} filters={filters} onFiltersChange={setFilters} onRowClick={handleRowClick} />
-            <DashboardCharts itens={itensFiltrados} />
+            <DashboardCharts itens={itensFiltrados} totalCount={itens.length} />
           </>
         )}
       </main>
