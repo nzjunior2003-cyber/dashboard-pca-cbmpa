@@ -187,18 +187,18 @@ export const STATUS_META: Record<
     label: "Contratado",
     className: "bg-status-ok text-status-ok-foreground",
     dot: "bg-status-ok-foreground",
-    chartColor: "var(--status-ok)",
+    chartColor: "var(--status-ok-foreground)",
   },
   andamento: {
     label: "Em andamento",
     className: "bg-status-warn text-status-warn-foreground",
     dot: "bg-status-warn-foreground",
-    chartColor: "var(--status-warn)",
+    chartColor: "var(--status-warn-foreground)",
   },
   aguardando: {
     label: "Aguardando instrução",
     className: "bg-status-late text-status-late-foreground",
     dot: "bg-status-late-foreground",
-    chartColor: "var(--status-late)",
+    chartColor: "var(--status-late-foreground)",
   },
 }

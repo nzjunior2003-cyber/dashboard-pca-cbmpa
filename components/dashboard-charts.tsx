@@ -14,8 +14,8 @@ import { formatBRL, STATUS_META } from "@/lib/pca-utils"
 import type { PcaItem, PcaStatusKey } from "@/lib/types"
 
 const PAE_COLORS: Record<string, string> = {
-  "Com PAE": "var(--status-ok)",
-  "Sem PAE": "var(--status-archived)",
+  "Com PAE": "var(--status-ok-foreground)",
+  "Sem PAE": "var(--status-archived-foreground)",
 }
 
 interface PieSliceDatum {
