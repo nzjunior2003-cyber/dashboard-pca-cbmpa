@@ -23,8 +23,29 @@ interface PieSliceDatum {
   label: string
   value: number
   fill: string
+  /** Já arredondado (inteiro) e garantidamente soma 100% entre as fatias deste gráfico. */
   pctFiltered: number
+  /** Percentual do total geral (sem filtro) — não precisa somar 100%, pode ser < 100% se houver filtro ativo. */
   pctTotal: number
+}
+
+/**
+ * Arredonda uma lista de percentuais para inteiros que somam exatamente
+ * 100 (método do maior resto), em vez de arredondar cada um
+ * independentemente — o que pode resultar em somas como 99% ou 101%.
+ */
+function roundPercentagesTo100(raw: number[]): number[] {
+  if (raw.length === 0) return []
+  const floors = raw.map((v) => Math.floor(v))
+  const deficit = 100 - floors.reduce((a, b) => a + b, 0)
+  const order = raw
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac)
+  const result = [...floors]
+  for (let k = 0; k < deficit && k < order.length; k++) {
+    result[order[k].i] += 1
+  }
+  return result
 }
 
 /** Conta ocorrências dentro do subconjunto filtrado e calcula % do filtro e % do total geral. */
@@ -34,17 +55,18 @@ function buildDualPctData<T extends string>(
   groups: { key: T; label: string; fill: string; predicate: (i: PcaItem) => boolean }[],
 ): PieSliceDatum[] {
   const filteredTotal = itens.length
-  return groups.map((g) => {
-    const value = itens.filter(g.predicate).length
-    return {
-      key: g.key,
-      label: g.label,
-      value,
-      fill: g.fill,
-      pctFiltered: filteredTotal > 0 ? (value / filteredTotal) * 100 : 0,
-      pctTotal: totalCount > 0 ? (value / totalCount) * 100 : 0,
-    }
-  })
+  const values = groups.map((g) => itens.filter(g.predicate).length)
+  const rawPctFiltered = values.map((v) => (filteredTotal > 0 ? (v / filteredTotal) * 100 : 0))
+  const pctFilteredRounded = filteredTotal > 0 ? roundPercentagesTo100(rawPctFiltered) : values.map(() => 0)
+
+  return groups.map((g, idx) => ({
+    key: g.key,
+    label: g.label,
+    value: values[idx],
+    fill: g.fill,
+    pctFiltered: pctFilteredRounded[idx],
+    pctTotal: totalCount > 0 ? (values[idx] / totalCount) * 100 : 0,
+  }))
 }
 
 function shorten(label: string, max = 22) {
