@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react"
 import { usePcaItens } from "@/hooks/use-pca"
 import { computeKpis } from "@/lib/pca-metrics"
+import { computeInsights } from "@/lib/pca-insights"
 import { filterItens, countActiveFilters, INITIAL_FILTERS, type PcaFilters } from "@/lib/pca-filters"
 import type { PcaItem } from "@/lib/types"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { KpiCards } from "@/components/kpi-cards"
+import { InsightsPanel } from "@/components/insights-panel"
 import { DashboardCharts } from "@/components/dashboard-charts"
 import { PcaTable } from "@/components/pca-table"
 import { PcaDetailSheet } from "@/components/pca-detail-sheet"
@@ -26,6 +28,7 @@ export default function Page() {
   // Estado de filtros compartilhado: cards, gráficos e tabela reagem juntos.
   const itensFiltrados = useMemo(() => filterItens(itens, filters), [itens, filters])
   const kpis = useMemo(() => computeKpis(itensFiltrados), [itensFiltrados])
+  const insights = useMemo(() => computeInsights(itensFiltrados), [itensFiltrados])
   const activeFilterCount = countActiveFilters(filters)
 
   function handleRowClick(item: PcaItem) {
@@ -83,6 +86,8 @@ export default function Page() {
           temPaeFilter={filters.temPae}
           onToggleTemPae={handleToggleTemPae}
         />
+
+        {!loading && <InsightsPanel insights={insights} />}
 
         {loading ? (
           <ContentSkeleton />
