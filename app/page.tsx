@@ -8,7 +8,7 @@ import { filterItens, countActiveFilters, INITIAL_FILTERS, type PcaFilters } fro
 import type { PcaItem } from "@/lib/types"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { KpiCards } from "@/components/kpi-cards"
-import { InsightsPanel } from "@/components/insights-panel"
+import { InsightsSheet } from "@/components/insights-sheet"
 import { DashboardCharts } from "@/components/dashboard-charts"
 import { PcaTable } from "@/components/pca-table"
 import { PcaDetailSheet } from "@/components/pca-detail-sheet"
@@ -21,6 +21,7 @@ export default function Page() {
   const { itens, source, status, error, lastUpdated, refresh } = usePcaItens()
   const [selected, setSelected] = useState<PcaItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [insightsOpen, setInsightsOpen] = useState(false)
   const [filters, setFilters] = useState<PcaFilters>(INITIAL_FILTERS)
 
   const loading = status === "loading"
@@ -52,6 +53,8 @@ export default function Page() {
         status={status}
         lastUpdated={lastUpdated}
         onRefresh={refresh}
+        insightsCount={insights.length}
+        onOpenInsights={() => setInsightsOpen(true)}
       />
 
       <main className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-5 md:px-6">
@@ -87,8 +90,6 @@ export default function Page() {
           onToggleTemPae={handleToggleTemPae}
         />
 
-        {!loading && <InsightsPanel insights={insights} />}
-
         {loading ? (
           <ContentSkeleton />
         ) : (
@@ -115,6 +116,7 @@ export default function Page() {
       </main>
 
       <PcaDetailSheet item={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
+      <InsightsSheet insights={insights} open={insightsOpen} onOpenChange={setInsightsOpen} />
 
       <footer className="border-t border-border py-6">
         <div className="mx-auto max-w-[1400px] px-4 text-center text-xs text-muted-foreground md:px-6">

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { LoadStatus, SourceKind } from "@/lib/types"
-import { RefreshCw, Database, FlaskConical } from "lucide-react"
+import { RefreshCw, Database, FlaskConical, Lightbulb } from "lucide-react"
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 
@@ -12,9 +12,18 @@ interface DashboardHeaderProps {
   status: LoadStatus
   lastUpdated: Date | null
   onRefresh: () => void
+  insightsCount?: number
+  onOpenInsights?: () => void
 }
 
-export function DashboardHeader({ source, status, lastUpdated, onRefresh }: DashboardHeaderProps) {
+export function DashboardHeader({
+  source,
+  status,
+  lastUpdated,
+  onRefresh,
+  insightsCount = 0,
+  onOpenInsights,
+}: DashboardHeaderProps) {
   const loading = status === "loading"
   return (
     <header className="border-b border-border">
@@ -64,6 +73,18 @@ export function DashboardHeader({ source, status, lastUpdated, onRefresh }: Dash
                 </span>
               )}
             </div>
+            {onOpenInsights && (
+              <button
+                type="button"
+                onClick={onOpenInsights}
+                disabled={insightsCount === 0}
+                title={insightsCount === 0 ? "Nenhum insight para o recorte atual" : "Ver insights"}
+                className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Lightbulb className="size-3.5" aria-hidden />
+                Insights{insightsCount > 0 ? ` (${insightsCount})` : ""}
+              </button>
+            )}
             <Button size="sm" variant="secondary" onClick={onRefresh} disabled={loading}>
               <RefreshCw data-icon="inline-start" className={cn(loading && "animate-spin")} />
               {loading ? "Atualizando…" : "Atualizar dados"}
